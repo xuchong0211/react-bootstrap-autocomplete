@@ -1,20 +1,24 @@
 import React, {Component, PropTypes} from 'react';
 import {Input, ListGroup, ListGroupItem} from 'react-bootstrap';
 
-const initialState = {
-    id: null,
-    value: '',
-    searchTimeout: null,
-    data: null
-};
-
 export default class AutoComplete extends Component {
     constructor(props) {
         super(props);
-        this.state = initialState;
+        this.defaultValue = this.props.value;
+        this.state = {
+            id: null,
+            value: this.props.value,
+            searchTimeout: null,
+            data: null
+        };
         ['onChange', 'onBlur'].forEach((m) => {
             this[m] = this[m].bind(this);
         })
+    }
+    componentWillUnmount() {
+        if (this.state.searchTimeout) {
+            clearTimeout(this.state.searchTimeout);
+        }
     }
     onChange(event) {
         if (this.state.searchTimeout != null) {
@@ -33,19 +37,31 @@ export default class AutoComplete extends Component {
             searchTimeout,
         }, () => {
             if (this.props.onChangeCallback) {
-                this.props.onChangeCallback();
+                this.props.onChangeCallback(value);
             }
         });
     }
     onBlur () {
         setTimeout( () => {
             if (this.state.id == null) {
-                this.setState({value: ''});
+                if (this.state.value == '' || this.state.value == undefined) {
+                    this.defaultValue = '';
+                }
+                this.setState({value: this.defaultValue}, ()=> {
+                    if (this.props.onBlurCallback) {
+                        this.props.onBlurCallback();
+                    }
+                });
             }
         }, 300);
     }
     reset () {
-        this.setState(initialState);
+        this.setState({
+            id: null,
+            value: this.props.value,
+            searchTimeout: null,
+            data: null
+        });
     }
     render() {
         const self = this;
@@ -53,9 +69,8 @@ export default class AutoComplete extends Component {
             position: 'absolute',
             marginTop: -15,
             zIndex: 99999,
-            display: this.state.value != '' ? 'block' : 'none'
+            display: this.state.value != this.props.value ? 'block' : 'none'
         };
-
         return <div>
             <Input
                 type={this.props.type}
@@ -74,6 +89,7 @@ export default class AutoComplete extends Component {
                                 <ListGroupItem
                                     key={'auto_complete_' + index}
                                     onClick={() => {
+                                        self.defaultValue = self.props.getValue(item);
                                         self.setState({
                                             value: this.props.getValue(item),
                                             id: this.props.getId(item)
@@ -96,12 +112,14 @@ export default class AutoComplete extends Component {
 }
 
 AutoComplete.propTypes = {
+    value: PropTypes.string,
     type: PropTypes.string,
     label: PropTypes.string,
     placeholder: PropTypes.string,
     getId: PropTypes.func.isRequired,
     getValue: PropTypes.func.isRequired,
     request: PropTypes.func.isRequired,
+    onBlurCallback: PropTypes.func,
     onChangeCallback: PropTypes.func,
     onSelectCallback: PropTypes.func,
     items: PropTypes.array,
@@ -109,6 +127,7 @@ AutoComplete.propTypes = {
 };
 
 AutoComplete.defaultProps = {
+    value: '',
     type: 'text',
     label: '',
     placeholder: '',
